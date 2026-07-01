@@ -33,6 +33,8 @@ install_packages() {
 
   log "Installing required packages..."
   DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    -o Dpkg::Options::="--force-confdef" \
+    -o Dpkg::Options::="--force-confold" \
     network-manager \
     hostapd \
     dnsmasq \
