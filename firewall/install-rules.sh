@@ -17,7 +17,8 @@ AP_IP="${AP_IP:-192.168.50.1}"
 export IFACE_AP IFACE_UPLINK WG_INTERFACE AP_SUBNET AP_IP
 
 mkdir -p /etc/nftables.d
-envsubst < "$INSTALL_ROOT/firewall/pi-vpn-gateway.nft.template" \
+envsubst '${IFACE_AP} ${IFACE_UPLINK} ${WG_INTERFACE} ${AP_SUBNET} ${AP_IP}' \
+  < "$INSTALL_ROOT/firewall/pi-vpn-gateway.nft.template" \
   > /etc/nftables.d/pi-vpn-gateway.nft
 
 cat > /etc/nftables.conf <<'EOF'

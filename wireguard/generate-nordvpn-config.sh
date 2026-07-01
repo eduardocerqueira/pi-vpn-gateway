@@ -17,8 +17,8 @@ die() { log "ERROR: $*"; exit 1; }
 # Resolve server if not provided
 if [[ -z "${NORDVPN_SERVER_HOSTNAME:-}" ]]; then
   log "Looking up WireGuard server for $VPN_COUNTRY..."
-  SERVERS_JSON=$(curl -sf \
-    "https://api.nordvpn.com/v1/servers/recommendations?filters[country]=${VPN_COUNTRY}&filters[servers_technologies][identifier]=wireguard_udp&limit=1")
+  SERVERS_JSON=$(curl -sf -g \
+    "https://api.nordvpn.com/v1/servers/recommendations?filters[country_id]=30&filters[servers_technologies][identifier]=wireguard_udp&limit=1")
   NORDVPN_SERVER_HOSTNAME=$(echo "$SERVERS_JSON" | jq -r '.[0].hostname // empty')
   [[ -n "$NORDVPN_SERVER_HOSTNAME" ]] || die "No server found for $VPN_COUNTRY"
 fi

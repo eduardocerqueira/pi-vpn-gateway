@@ -17,8 +17,8 @@ die() { log "ERROR: $*"; exit 1; }
 log "Fetching WireGuard server for $VPN_COUNTRY..."
 
 # Public NordVPN servers API
-SERVERS_JSON=$(curl -sf \
-  "https://api.nordvpn.com/v1/servers/recommendations?filters[country]=${VPN_COUNTRY}&filters[servers_technologies][identifier]=wireguard_udp&limit=1")
+SERVERS_JSON=$(curl -sf -g \
+  "https://api.nordvpn.com/v1/servers/recommendations?filters[country_id]=30&filters[servers_technologies][identifier]=wireguard_udp&limit=1")
 
 SERVER_HOSTNAME=$(echo "$SERVERS_JSON" | jq -r '.[0].hostname // empty')
 [[ -n "$SERVER_HOSTNAME" ]] || die "No WireGuard server found for $VPN_COUNTRY"
@@ -28,7 +28,7 @@ log "Selected server: $SERVER_HOSTNAME"
 # NordVPN credentials endpoint returns WireGuard private key when authenticated
 CREDS=$(curl -sf \
   -u "token:${NORDVPN_TOKEN}" \
-  "https://nordvpn.com/api/v1/users/services/credentials")
+  "https://api.nordvpn.com/v1/users/services/credentials")
 
 WG_PRIVATE_KEY=$(echo "$CREDS" | jq -r '.nordlynx_private_key // empty')
 [[ -n "$WG_PRIVATE_KEY" ]] || die "Could not retrieve NordLynx private key — check token"
