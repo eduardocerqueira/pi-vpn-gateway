@@ -8,9 +8,8 @@ ctrl_interface_group=0
 
 ssid=${AP_SSID}
 hw_mode=g
-channel=6
-ieee80211n=1
-wmm_enabled=1
+channel=1
+ieee80211n=0
 
 # WPA2-PSK (WPA3 requires hostapd 2.10+ and capable hardware)
 auth_algs=1

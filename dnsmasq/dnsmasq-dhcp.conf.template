@@ -1,0 +1,9 @@
+port=0
+interface=${IFACE_AP}
+bind-interfaces
+dhcp-range=${AP_DHCP_START},${AP_DHCP_END},255.255.255.0,12h
+dhcp-option=option:router,${AP_IP}
+dhcp-option=option:dns-server,${AP_IP}
+dhcp-leasefile=/var/lib/misc/dnsmasq.leases
+log-dhcp
+log-facility=/var/log/pi-vpn-gateway/dnsmasq-dhcp.log

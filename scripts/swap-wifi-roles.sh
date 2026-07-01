@@ -67,8 +67,7 @@ mkdir -p /etc/systemd/system/hostapd.service.d
 cat > /etc/systemd/system/hostapd.service.d/regdomain.conf <<EOF
 [Service]
 ExecStartPre=/usr/sbin/iw reg set BR
-ExecStartPre=/bin/sh -c '/usr/sbin/ip link set ${IFACE_AP} down 2>/dev/null; sleep 1; /usr/sbin/ip link set ${IFACE_AP} up'
-ExecStartPre=/bin/sleep 2
+ExecStartPre=/bin/sleep 1
 EOF
 
 envsubst < "$INSTALL_ROOT/dnsmasq/dnsmasq.conf.template" > /etc/dnsmasq.d/pi-vpn-gateway.conf

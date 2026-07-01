@@ -2,11 +2,91 @@
 
 Use this guide when the gateway is misconfigured, unresponsive, or needs a clean rebuild.
 
+## Console recovery (keyboard + monitor)
+
+If SSH keeps dropping and the network feels unstable, run the stabilize script **on the Pi directly**:
+
+```bash
+cd ~/pi-vpn-gateway
+git pull   # if internet works; skip if offline
+sudo bash scripts/console-stabilize.sh YOUR_CASITA_WIFI_PASSWORD
+```
+
+This script:
+
+- Stops the **health timer** (was restarting VPN every 3 minutes)
+- Fixes Wi-Fi roles: **built-in = AP**, **USB = uplink**
+- Fixes hostapd (no stuck `country_code`, quoted password `Brasil*2026!`)
+- Removes hostapd **interface bounce** on every restart (was dropping AP/SSH)
+- Restores DHCP on the AP subnet
+- Fixes firewall for SSH from home LAN
+
+At the end it prints the **uplink IP** for SSH from your Mac.
+
+---
+
+## Can't SSH or Ping the Pi (router shows an IP)
+
+**Symptoms:** Router lists the Pi at e.g. `192.168.100.230`, but `ping` and `ssh` time out from your Mac.
+
+**Common cause:** After a Wi-Fi role swap, the home IP moved to the **USB adapter** (`wlan1`) but the firewall still only allows SSH on the **built-in** interface (`wlan0`). Incoming packets are dropped.
+
+### Fix A — SSH via `Home-BR` (no monitor needed)
+
+If the AP is running:
+
+1. Connect your phone or laptop to Wi-Fi **`Home-BR`** (password: see `/etc/pi-vpn-gateway/env` on the Pi, or your chosen passphrase).
+2. SSH to the AP address (not the home IP):
+
+```bash
+ssh -i ~/.ssh/id_rsa eduardo@192.168.50.1
+```
+
+3. On the Pi, run:
+
+```bash
+sudo /opt/pi-vpn-gateway/scripts/fix-ssh-access.sh
+sudo /opt/pi-vpn-gateway/scripts/swap-wifi-roles.sh   # if roles still wrong
+sudo /opt/pi-vpn-gateway/scripts/set-ap-password.sh 'Brasil*2026!'
+```
+
+Then SSH from your Mac to the home IP again:
+
+```bash
+ssh -i ~/.ssh/id_rsa eduardo@192.168.100.230
+```
+
+### Fix B — Keyboard + monitor (or Ethernet)
+
+Log in locally and run:
+
+```bash
+sudo nft flush ruleset
+sudo /opt/pi-vpn-gateway/scripts/fix-ssh-access.sh
+```
+
+### Fix C — Temporary disable firewall
+
+```bash
+sudo nft flush ruleset
+sudo systemctl stop pi-vpn-gateway-firewall
+```
+
+Re-enable after fixing interface roles:
+
+```bash
+sudo /opt/pi-vpn-gateway/firewall/install-rules.sh
+sudo systemctl start pi-vpn-gateway-firewall
+```
+
+---
+
 ## Quick Recovery Checklist
 
-1. Can you SSH to the Pi via home network (`wlan0` IP)?
-2. Is the RT5370 plugged in? (`ip link show wlan1`)
-3. Are core services running?
+1. Can you SSH via **`Home-BR`** at `192.168.50.1`?
+2. Can you SSH via home network (`wlan1` IP, e.g. `192.168.100.230`)?
+3. Is the USB Wi-Fi plugged in? (`ip link show wlan1`)
+4. Are core services running?
 
 ```bash
 systemctl status hostapd dnsmasq wg-quick@wg0 pi-vpn-gateway nftables

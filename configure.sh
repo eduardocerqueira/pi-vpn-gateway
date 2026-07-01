@@ -119,15 +119,14 @@ configure_hostapd() {
 DAEMON_CONF="/etc/hostapd/hostapd.conf"
 EOF
 
-  # RT5370 hostapd stalls in COUNTRY_UPDATE unless regdomain is set before start
+  # Set regdomain before hostapd — do NOT bounce the AP interface (drops clients/SSH)
   echo 'options cfg80211 ieee80211_regdom=BR' > /etc/modprobe.d/cfg80211-regdomain.conf
   echo 'REGDOMAIN=BR' > /etc/default/crda
   mkdir -p /etc/systemd/system/hostapd.service.d
   cat > /etc/systemd/system/hostapd.service.d/regdomain.conf <<EOF
 [Service]
 ExecStartPre=/usr/sbin/iw reg set BR
-ExecStartPre=/bin/sh -c '/usr/sbin/ip link set ${IFACE_AP} down 2>/dev/null; sleep 1; /usr/sbin/ip link set ${IFACE_AP} up'
-ExecStartPre=/bin/sleep 2
+ExecStartPre=/bin/sleep 1
 EOF
 }
 
@@ -137,9 +136,18 @@ configure_dns() {
   render_template "$TEMPLATE_DIR/dnsmasq/dnsmasq.conf.template" /etc/dnsmasq.d/pi-vpn-gateway.conf
 
   if systemctl is-active --quiet pihole-FTL 2>/dev/null; then
-    log "Pi-hole FTL detected — using it for AP DNS/DHCP (standalone dnsmasq disabled)"
+    log "Pi-hole FTL detected — Pi-hole for DNS, dedicated dnsmasq for AP DHCP"
+    # Disable Pi-hole DHCP (often wrong subnet); use isolated DHCP service on AP iface
+    if [[ -f /etc/pihole/setupVars.conf ]]; then
+      sed -i 's/^DHCP_ACTIVE=.*/DHCP_ACTIVE=false/' /etc/pihole/setupVars.conf
+    fi
+    mv /etc/dnsmasq.d/02-pihole-dhcp.conf /etc/dnsmasq.d/02-pihole-dhcp.conf.disabled 2>/dev/null || true
     systemctl disable --now dnsmasq 2>/dev/null || true
     systemctl mask dnsmasq 2>/dev/null || true
+    render_template "$TEMPLATE_DIR/dnsmasq/dnsmasq-dhcp.conf.template" /etc/pi-vpn-gateway/dnsmasq-dhcp.conf
+    install -m 644 "$TEMPLATE_DIR/systemd/pi-vpn-gateway-dhcp.service" /etc/systemd/system/
+    systemctl daemon-reload
+    systemctl enable --now pi-vpn-gateway-dhcp
     systemctl restart pihole-FTL
   elif [[ -f /etc/dnsmasq.conf ]] && ! grep -q 'pi-vpn-gateway' /etc/dnsmasq.conf; then
     echo "# Managed by pi-vpn-gateway — see /etc/dnsmasq.d/pi-vpn-gateway.conf" >> /etc/dnsmasq.conf

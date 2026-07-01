@@ -78,6 +78,47 @@ sudo grep AP_PASSPHRASE /etc/pi-vpn-gateway/env
 
 ---
 
+## Can't ping or SSH to the Pi (router shows `192.168.100.230`)
+
+The router may list the Pi, but **ping and SSH can still fail** if the firewall blocks the interface carrying that IP (common after a Wi-Fi role swap).
+
+**Try in this order:**
+
+### 1. SSH through `Home-BR`
+
+Connect to **`Home-BR`**, then:
+
+```bash
+ssh -i ~/.ssh/id_rsa eduardo@192.168.50.1
+```
+
+On the Pi:
+
+```bash
+sudo /opt/pi-vpn-gateway/scripts/fix-ssh-access.sh
+```
+
+### 2. SSH from home LAN (after firewall fix)
+
+```bash
+ssh -i ~/.ssh/id_rsa eduardo@192.168.100.230
+ping 192.168.100.230
+```
+
+### 3. Dashboard via tunnel (once SSH works)
+
+```bash
+ssh -i ~/.ssh/id_rsa -L 8080:127.0.0.1:8080 eduardo@192.168.100.230
+```
+
+Open **http://localhost:8080/**
+
+### 4. Still stuck?
+
+Use a keyboard/monitor on the Pi, or see [Recovery — Can't SSH or Ping](recovery.md#cant-ssh-or-ping-the-pi-router-shows-an-ip).
+
+---
+
 ## How do I SSH into the Pi?
 
 From your Mac (home LAN):
@@ -98,7 +139,7 @@ If that IP does not work:
 | Interface | Role | Notes |
 |-----------|------|--------|
 | `wlan0` (built-in) | **AP — `Home-BR`** | Better antenna and range for TVs/phones |
-| `wlan1` (USB) | **Uplink — home Wi-Fi** | Connects to your router (e.g. `CASITA`) |
+| `wlan1` (USB) | **Uplink — home Wi-Fi** | Connects to your router (e.g. `MY-WIFI`) |
 
 ---
 

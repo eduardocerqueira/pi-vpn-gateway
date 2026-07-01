@@ -1,0 +1,13 @@
+[Unit]
+Description=Pi VPN Gateway — DHCP for AP clients
+After=hostapd.service network.target
+Wants=hostapd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/dnsmasq -C /etc/pi-vpn-gateway/dnsmasq-dhcp.conf -k
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
