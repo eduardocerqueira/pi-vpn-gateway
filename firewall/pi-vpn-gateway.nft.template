@@ -27,8 +27,10 @@ table inet pi_vpn_gateway {
     # SSH from AP subnet (optional maintenance)
     iifname $AP_IFACE ip saddr $AP_NET tcp dport 22 accept
 
-    # Allow uplink management traffic to Pi
+    # Allow SSH and ping to Pi from home network (uplink)
     iifname $UPLINK_IFACE ct state established,related accept
+    iifname $UPLINK_IFACE tcp dport 22 accept
+    iifname $UPLINK_IFACE icmp type echo-request accept
     iifname $UPLINK_IFACE udp dport 68 accept
   }
 

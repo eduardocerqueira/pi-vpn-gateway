@@ -120,13 +120,17 @@ DAEMON_CONF="/etc/hostapd/hostapd.conf"
 EOF
 }
 
-configure_dnsmasq() {
-  log "Configuring dnsmasq for AP clients..."
+configure_dns() {
+  log "Configuring DNS/DHCP for AP clients..."
   export AP_IP AP_DHCP_START AP_DHCP_END IFACE_AP IFACE_UPLINK
   render_template "$TEMPLATE_DIR/dnsmasq/dnsmasq.conf.template" /etc/dnsmasq.d/pi-vpn-gateway.conf
 
-  # Disable distro default dnsmasq config that binds to all interfaces
-  if [[ -f /etc/dnsmasq.conf ]] && ! grep -q 'pi-vpn-gateway' /etc/dnsmasq.conf; then
+  if systemctl is-active --quiet pihole-FTL 2>/dev/null; then
+    log "Pi-hole FTL detected — using it for AP DNS/DHCP (standalone dnsmasq disabled)"
+    systemctl disable --now dnsmasq 2>/dev/null || true
+    systemctl mask dnsmasq 2>/dev/null || true
+    systemctl restart pihole-FTL
+  elif [[ -f /etc/dnsmasq.conf ]] && ! grep -q 'pi-vpn-gateway' /etc/dnsmasq.conf; then
     echo "# Managed by pi-vpn-gateway — see /etc/dnsmasq.d/pi-vpn-gateway.conf" >> /etc/dnsmasq.conf
   fi
 }
@@ -173,8 +177,16 @@ configure_ap_interface() {
 enable_services() {
   log "Enabling and starting services..."
 
-  systemctl unmask hostapd dnsmasq 2>/dev/null || true
-  systemctl enable hostapd dnsmasq
+  if systemctl is-active --quiet pihole-FTL 2>/dev/null; then
+    DNS_SVC=pihole-FTL
+  else
+    systemctl unmask dnsmasq 2>/dev/null || true
+    systemctl enable dnsmasq
+    DNS_SVC=dnsmasq
+  fi
+
+  systemctl unmask hostapd 2>/dev/null || true
+  systemctl enable hostapd
   systemctl enable "wg-quick@${WG_INTERFACE}"
   systemctl enable pi-vpn-gateway.service
   systemctl enable pi-vpn-gateway-firewall.service
@@ -184,7 +196,7 @@ enable_services() {
   systemctl restart pi-vpn-gateway-firewall.service
   systemctl restart "wg-quick@${WG_INTERFACE}"
   systemctl restart hostapd
-  systemctl restart dnsmasq
+  systemctl restart "$DNS_SVC"
   systemctl restart pi-vpn-gateway.service
   systemctl restart pi-vpn-gateway-dashboard.service 2>/dev/null || true
   systemctl start pi-vpn-gateway-health.timer
@@ -292,7 +304,7 @@ main() {
   configure_uplink
   configure_ap_interface
   configure_hostapd
-  configure_dnsmasq
+  configure_dns
   configure_wireguard
   configure_firewall
   enable_services

@@ -21,9 +21,5 @@ no-resolv
 server=1.1.1.1
 server=1.0.0.1
 
-# Logging
-log-queries
-log-facility=/var/log/pi-vpn-gateway/dnsmasq.log
-
 # Don't conflict with systemd-resolved on other interfaces
 no-dhcp-interface=${IFACE_UPLINK}

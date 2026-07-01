@@ -35,6 +35,12 @@ SERVER_IP=$(echo "$SERVER_JSON" | jq -r \
 
 [[ -n "$SERVER_PUBKEY" && -n "$SERVER_IP" ]] || die "Could not parse server WireGuard metadata"
 
+# Fallback to station IP if wireguard metadata has no dedicated IP field
+if [[ -z "$SERVER_IP" ]]; then
+  SERVER_IP=$(echo "$SERVER_JSON" | jq -r '.[0].station // empty')
+fi
+[[ -n "$SERVER_IP" ]] || die "Could not determine server endpoint IP"
+
 mkdir -p /etc/wireguard
 
 install -m 600 /dev/stdin "/etc/wireguard/${WG_INTERFACE}.conf" <<EOF

@@ -1,8 +1,8 @@
 [Unit]
 Description=Pi VPN Gateway — AP routing orchestration
-After=network-online.target hostapd.service dnsmasq.service wg-quick@wg0.service
+After=network-online.target hostapd.service wg-quick@wg0.service
 Wants=network-online.target wg-quick@wg0.service
-Requires=hostapd.service dnsmasq.service
+Requires=hostapd.service
 
 [Service]
 Type=oneshot

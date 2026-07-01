@@ -49,7 +49,8 @@ install_packages() {
     iw \
     rfkill \
     rsync \
-    gettext-base
+    gettext-base \
+    openresolv
 
   # Prevent hostapd/dnsmasq from starting with distro defaults before we configure
   systemctl stop hostapd dnsmasq 2>/dev/null || true
