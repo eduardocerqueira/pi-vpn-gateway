@@ -1,0 +1,14 @@
+[Unit]
+Description=Pi VPN Gateway — web dashboard
+After=pi-vpn-gateway.service
+Wants=pi-vpn-gateway.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/pi-vpn-gateway/env
+ExecStart=/usr/bin/python3 /opt/pi-vpn-gateway/dashboard/app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

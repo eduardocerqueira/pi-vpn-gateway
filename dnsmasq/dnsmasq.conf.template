@@ -1,0 +1,29 @@
+# dnsmasq configuration for AP clients
+# Rendered from template by configure.sh
+
+interface=${IFACE_AP}
+bind-interfaces
+except-interface=lo
+
+# DHCP range for Samsung TVs
+dhcp-range=${AP_DHCP_START},${AP_DHCP_END},255.255.255.0,12h
+dhcp-option=option:router,${AP_IP}
+dhcp-option=option:dns-server,${AP_IP}
+
+# Listen only on AP interface
+listen-address=${AP_IP}
+
+# Do not read /etc/resolv.conf — DNS forwarded via Pi VPN gateway script
+no-resolv
+
+# Upstream DNS will be set dynamically when VPN is up (see pi-vpn-gateway.service)
+# Fallback public DNS if VPN hook hasn't run yet:
+server=1.1.1.1
+server=1.0.0.1
+
+# Logging
+log-queries
+log-facility=/var/log/pi-vpn-gateway/dnsmasq.log
+
+# Don't conflict with systemd-resolved on other interfaces
+no-dhcp-interface=${IFACE_UPLINK}

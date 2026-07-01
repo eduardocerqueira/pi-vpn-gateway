@@ -1,0 +1,25 @@
+# hostapd configuration for RT5370 AP (wlan1)
+# Rendered from template by configure.sh
+
+interface=${IFACE_AP}
+driver=nl80211
+ssid=${AP_SSID}
+hw_mode=g
+channel=6
+country_code=BR
+ieee80211n=1
+wmm_enabled=1
+
+# WPA2-PSK (WPA3 requires hostapd 2.10+ and capable hardware)
+auth_algs=1
+wpa=2
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP CCMP
+rsn_pairwise=CCMP
+wpa_passphrase=${AP_PASSPHRASE}
+
+# Isolate clients from each other (optional — TVs don't need LAN discovery)
+# ap_isolate=1
+
+ignore_broadcast_ssid=0
+beacon_int=100

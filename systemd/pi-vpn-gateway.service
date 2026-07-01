@@ -1,0 +1,15 @@
+[Unit]
+Description=Pi VPN Gateway — AP routing orchestration
+After=network-online.target hostapd.service dnsmasq.service wg-quick@wg0.service
+Wants=network-online.target wg-quick@wg0.service
+Requires=hostapd.service dnsmasq.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/pi-vpn-gateway/env
+ExecStart=/opt/pi-vpn-gateway/systemd/gateway-start.sh
+ExecStop=/opt/pi-vpn-gateway/systemd/gateway-stop.sh
+
+[Install]
+WantedBy=multi-user.target

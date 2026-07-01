@@ -1,0 +1,11 @@
+[Unit]
+Description=Pi VPN Gateway — health check and VPN reconnect
+After=pi-vpn-gateway.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/pi-vpn-gateway/env
+ExecStart=/opt/pi-vpn-gateway/systemd/health-check.sh
+
+[Install]
+WantedBy=multi-user.target

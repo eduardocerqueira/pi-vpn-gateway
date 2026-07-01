@@ -1,0 +1,62 @@
+#!/usr/sbin/nft -f
+# Pi VPN Gateway firewall — kill switch + NAT for AP clients through VPN
+# Rendered from template by install-rules.sh
+
+define AP_IFACE = ${IFACE_AP}
+define UPLINK_IFACE = ${IFACE_UPLINK}
+define VPN_IFACE = ${WG_INTERFACE}
+define AP_NET = ${AP_SUBNET}
+define AP_IP = ${AP_IP}
+
+table inet pi_vpn_gateway {
+  chain input {
+    type filter hook input priority filter; policy drop;
+
+    iif "lo" accept
+    ct state established,related accept
+
+    # Allow DHCP/DNS/ping to the Pi from AP clients
+    iifname $AP_IFACE ip saddr $AP_NET udp dport { 67, 68 } accept
+    iifname $AP_IFACE ip saddr $AP_NET udp dport 53 accept
+    iifname $AP_IFACE ip saddr $AP_NET tcp dport 53 accept
+    iifname $AP_IFACE ip saddr $AP_NET icmp type echo-request accept
+
+    # Dashboard
+    iifname $AP_IFACE ip saddr $AP_NET tcp dport 8080 accept
+
+    # SSH from AP subnet (optional maintenance)
+    iifname $AP_IFACE ip saddr $AP_NET tcp dport 22 accept
+
+    # Allow uplink management traffic to Pi
+    iifname $UPLINK_IFACE ct state established,related accept
+    iifname $UPLINK_IFACE udp dport 68 accept
+  }
+
+  chain forward {
+    type filter hook forward priority filter; policy drop;
+
+    ct state established,related accept
+
+    # AP clients may only reach internet through VPN interface (kill switch)
+    iifname $AP_IFACE oifname $VPN_IFACE ip saddr $AP_NET accept
+
+    # Block AP clients from leaking via uplink
+    iifname $AP_IFACE oifname $UPLINK_IFACE ip saddr $AP_NET drop
+
+    # Return traffic from VPN to AP
+    iifname $VPN_IFACE oifname $AP_IFACE accept
+  }
+
+  chain output {
+    type filter hook output priority filter; policy accept;
+  }
+}
+
+table ip pi_vpn_gateway_nat {
+  chain postrouting {
+    type nat hook postrouting priority srcnat; policy accept;
+
+    # NAT AP client traffic out the VPN tunnel
+    oifname $VPN_IFACE ip saddr $AP_NET masquerade
+  }
+}

@@ -1,0 +1,17 @@
+# WireGuard / NordLynx template
+# Copy to /etc/wireguard/wg0.conf or use configure.sh to generate automatically
+#
+# Get credentials from https://my.nordaccount.com/dashboard/nordvpn/manual-configuration/
+# Select NordLynx (WireGuard) and Brazil server
+
+[Interface]
+PrivateKey = YOUR_NORDLYNX_PRIVATE_KEY
+Address = 10.5.0.2/32
+DNS = 1.1.1.1, 1.0.0.1
+Table = off
+
+[Peer]
+PublicKey = SERVER_PUBLIC_KEY
+AllowedIPs = 0.0.0.0/0, ::/0
+Endpoint = SERVER_IP:51820
+PersistentKeepalive = 25
