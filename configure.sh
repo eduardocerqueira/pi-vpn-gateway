@@ -118,6 +118,17 @@ configure_hostapd() {
   cat > /etc/default/hostapd <<EOF
 DAEMON_CONF="/etc/hostapd/hostapd.conf"
 EOF
+
+  # RT5370 hostapd stalls in COUNTRY_UPDATE unless regdomain is set before start
+  echo 'options cfg80211 ieee80211_regdom=BR' > /etc/modprobe.d/cfg80211-regdomain.conf
+  echo 'REGDOMAIN=BR' > /etc/default/crda
+  mkdir -p /etc/systemd/system/hostapd.service.d
+  cat > /etc/systemd/system/hostapd.service.d/regdomain.conf <<EOF
+[Service]
+ExecStartPre=/usr/sbin/iw reg set BR
+ExecStartPre=/bin/sh -c '/usr/sbin/ip link set ${IFACE_AP} down 2>/dev/null; sleep 1; /usr/sbin/ip link set ${IFACE_AP} up'
+ExecStartPre=/bin/sleep 2
+EOF
 }
 
 configure_dns() {
@@ -237,6 +248,24 @@ main() {
 
   load_env
 
+  # Auto-detect if not set in env (built-in = AP, USB = uplink)
+  if [[ -z "${IFACE_AP:-}" || -z "${IFACE_UPLINK:-}" ]]; then
+    builtin="" usb="" ifname driver
+    for _path in /sys/class/net/wl*; do
+      [[ -e "$_path" ]] || continue
+      ifname="${_path##*/}"
+      driver=$(basename "$(readlink -f "/sys/class/net/$ifname/device/driver" 2>/dev/null)" 2>/dev/null || true)
+      case "$driver" in
+        brcmfmac|brcm*) builtin="$ifname" ;;
+        rt2800usb|rt2x00*) usb="$ifname" ;;
+      esac
+    done
+    if [[ -n "$builtin" && -n "$usb" ]]; then
+      IFACE_AP="$builtin"
+      IFACE_UPLINK="$usb"
+      log "Auto-detected: AP=$IFACE_AP (built-in, better range), uplink=$IFACE_UPLINK (USB)"
+    fi
+  fi
   IFACE_UPLINK="${IFACE_UPLINK:-wlan0}"
   IFACE_AP="${IFACE_AP:-wlan1}"
   AP_SSID="${AP_SSID:-Home-BR}"

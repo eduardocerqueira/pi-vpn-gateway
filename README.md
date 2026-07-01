@@ -13,13 +13,13 @@ A dedicated Raspberry Pi appliance that broadcasts a **Brazil-only Wi-Fi network
                     |
           Raspberry Pi 3B
       +-----------------------+
-      | wlan0 (built-in)      |  ← connects to home Wi-Fi (uplink)
+      | wlan1 (RT5370 USB)    |  ← connects to home Wi-Fi (uplink)
       +-----------------------+
                  |
           WireGuard/NordVPN
                  |
       +-----------------------+
-      | wlan1 (RT5370 USB)    |  ← AP: Home-BR
+      | wlan0 (built-in)      |  ← AP: Home-BR (better range)
       +-----------------------+
                  |
         Samsung TVs connect here
@@ -30,8 +30,8 @@ A dedicated Raspberry Pi appliance that broadcasts a **Brazil-only Wi-Fi network
 | Component | Notes |
 |-----------|-------|
 | Raspberry Pi 3 Model B | Raspberry Pi OS Lite (64-bit recommended) |
-| RT5370 USB Wi-Fi adapter | AP mode on `wlan1` |
-| Built-in Wi-Fi | Uplink to home router on `wlan0` |
+| RT5370 USB Wi-Fi adapter | Uplink to home router on `wlan1` |
+| Built-in Wi-Fi | AP mode on `wlan0` (better antenna and range) |
 | NordVPN subscription | WireGuard / NordLynx credentials |
 
 ## Quick Start
@@ -64,7 +64,7 @@ You'll be prompted for:
 
 On your Samsung TV, connect to Wi-Fi **`Home-BR`**. Traffic will egress from Brazil via NordVPN.
 
-Dashboard: `http://192.168.50.1:8080`
+Dashboard: `http://192.168.50.1:8080` (on `Home-BR`) — see [FAQ](docs/faq.md) for SSH tunnel access from your Mac.
 
 ## Repository Layout
 
@@ -76,6 +76,7 @@ pi-vpn-gateway/
 ├── backup.sh               # Config backup
 ├── docs/
 │   ├── configuration.md
+│   ├── faq.md
 │   ├── recovery.md
 │   ├── upgrade.md
 │   └── troubleshooting.md
@@ -115,6 +116,7 @@ sudo systemctl restart wg-quick@wg0
 
 ## Documentation
 
+- [FAQ](docs/faq.md)
 - [Configuration guide](docs/configuration.md)
 - [Recovery instructions](docs/recovery.md)
 - [Upgrade guide](docs/upgrade.md)

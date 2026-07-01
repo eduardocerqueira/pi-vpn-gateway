@@ -14,16 +14,41 @@ require_root() {
   [[ $EUID -eq 0 ]] || die "Run as root: sudo $0"
 }
 
+iface_driver() {
+  local ifname="$1"
+  basename "$(readlink -f "/sys/class/net/$ifname/device/driver" 2>/dev/null)" 2>/dev/null || echo ""
+}
+
 detect_interfaces() {
-  # Built-in Wi-Fi is usually wlan0; USB adapter wlan1
-  IFACE_UPLINK="${IFACE_UPLINK:-wlan0}"
-  IFACE_AP="${IFACE_AP:-wlan1}"
+  # Prefer built-in brcmfmac for AP (better antenna + higher tx power).
+  # Use the USB adapter as uplink when both are present.
+  if [[ -z "${IFACE_AP:-}" || -z "${IFACE_UPLINK:-}" ]]; then
+    local builtin="" usb="" ifname driver
+    for _path in /sys/class/net/wl*; do
+      [[ -e "$_path" ]] || continue
+      ifname="${_path##*/}"
+      driver="$(iface_driver "$ifname")"
+      case "$driver" in
+        brcmfmac|brcm*) builtin="$ifname" ;;
+        rt2800usb|rt2x00*) usb="$ifname" ;;
+      esac
+    done
+
+    if [[ -n "$builtin" && -n "$usb" ]]; then
+      IFACE_AP="$builtin"
+      IFACE_UPLINK="$usb"
+      log "Auto-detected: AP=$IFACE_AP (built-in), uplink=$IFACE_UPLINK (USB)"
+    else
+      IFACE_UPLINK="${IFACE_UPLINK:-wlan0}"
+      IFACE_AP="${IFACE_AP:-wlan1}"
+    fi
+  fi
 
   if ! ip link show "$IFACE_UPLINK" &>/dev/null; then
     die "Uplink interface $IFACE_UPLINK not found"
   fi
   if ! ip link show "$IFACE_AP" &>/dev/null; then
-    log "WARNING: AP interface $IFACE_AP not found — plug in RT5370 before configure.sh"
+    log "WARNING: AP interface $IFACE_AP not found — plug in USB Wi-Fi before configure.sh"
   fi
 }
 
@@ -72,7 +97,8 @@ deploy_files() {
              "$INSTALL_ROOT"/backup.sh \
              "$INSTALL_ROOT"/wireguard/*.sh \
              "$INSTALL_ROOT"/firewall/*.sh \
-             "$INSTALL_ROOT"/systemd/*.sh 2>/dev/null || true
+             "$INSTALL_ROOT"/systemd/*.sh \
+             "$INSTALL_ROOT"/scripts/*.sh 2>/dev/null || true
   ln -sfn "$INSTALL_ROOT" /opt/pi-vpn-gateway 2>/dev/null || true
 }
 
