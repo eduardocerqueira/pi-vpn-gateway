@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # console-stabilize.sh — Run on the Pi with keyboard/monitor when SSH/AP keeps breaking
 # Usage: sudo bash console-stabilize.sh [home-wifi-password]
+# Pass your real CASITA Wi-Fi password, or omit to skip uplink reconnect.
 set -euo pipefail
 
 [[ $EUID -eq 0 ]] || { echo "Run as root: sudo bash $0"; exit 1; }
@@ -10,6 +11,12 @@ CONFIG="/etc/pi-vpn-gateway/env"
 AP_PASS='Brasil*2026!'
 HOME_SSID="${HOME_SSID:-CASITA}"
 HOME_WIFI_PASSWORD="${1:-}"
+
+if [[ "$HOME_WIFI_PASSWORD" == "YOUR_CASITA_WIFI_PASSWORD" || "$HOME_WIFI_PASSWORD" == "YOUR_PASSWORD" ]]; then
+  echo "ERROR: Replace the placeholder with your real CASITA Wi-Fi password."
+  echo "Example: sudo bash $0 'myActualPassword'"
+  exit 1
+fi
 
 log() { echo "[stabilize] $*"; }
 
@@ -67,20 +74,33 @@ EOF
 systemctl reload NetworkManager 2>/dev/null || true
 sleep 2
 
-if [[ -z "$HOME_WIFI_PASSWORD" ]]; then
-  HOME_WIFI_PASSWORD=$(nmcli -s -g 802-11-wireless-security.psk connection show "$HOME_SSID" 2>/dev/null || \
-    nmcli -s -g 802-11-wireless-security.psk connection show "${HOME_SSID}-usb" 2>/dev/null || true)
-fi
-if [[ -n "$HOME_WIFI_PASSWORD" ]]; then
-  log "Connecting $IFACE_UPLINK to $HOME_SSID..."
+# Skip uplink reconnect if already on home LAN
+UPLINK_IP_NOW=$(ip -4 addr show "$IFACE_UPLINK" 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1 | head -1)
+if [[ -n "$UPLINK_IP_NOW" ]]; then
+  log "Uplink already has IP $UPLINK_IP_NOW — skipping Wi-Fi connect"
+elif [[ -n "$HOME_WIFI_PASSWORD" ]]; then
+  log "Connecting $IFACE_UPLINK to $HOME_SSID (30s timeout)..."
   nmcli dev wifi rescan ifname "$IFACE_UPLINK" 2>/dev/null || true
   sleep 2
-  nmcli dev wifi connect "$HOME_SSID" password "$HOME_WIFI_PASSWORD" ifname "$IFACE_UPLINK" name "${HOME_SSID}-pi" 2>/dev/null || \
-    nmcli con up "${HOME_SSID}-pi" 2>/dev/null || true
+  timeout 30 nmcli dev wifi connect "$HOME_SSID" password "$HOME_WIFI_PASSWORD" \
+    ifname "$IFACE_UPLINK" name "${HOME_SSID}-pi" 2>/dev/null || \
+    timeout 15 nmcli con up "${HOME_SSID}-pi" 2>/dev/null || \
+    log "WARNING: uplink connect failed — continuing anyway (fix with nmcli later)"
   nmcli con modify "${HOME_SSID}-pi" connection.autoconnect yes 2>/dev/null || true
 else
-  log "WARNING: No home Wi-Fi password — connect $IFACE_UPLINK manually:"
-  log "  nmcli dev wifi connect \"$HOME_SSID\" password \"YOUR_PASSWORD\" ifname $IFACE_UPLINK"
+  HOME_WIFI_PASSWORD=$(nmcli -s -g 802-11-wireless-security.psk connection show "$HOME_SSID" 2>/dev/null || \
+    nmcli -s -g 802-11-wireless-security.psk connection show "${HOME_SSID}-pi" 2>/dev/null || \
+    nmcli -s -g 802-11-wireless-security.psk connection show "${HOME_SSID}-usb" 2>/dev/null || true)
+  if [[ -n "$HOME_WIFI_PASSWORD" ]]; then
+    log "Connecting $IFACE_UPLINK to $HOME_SSID from saved password (30s timeout)..."
+    timeout 30 nmcli dev wifi connect "$HOME_SSID" password "$HOME_WIFI_PASSWORD" \
+      ifname "$IFACE_UPLINK" name "${HOME_SSID}-pi" 2>/dev/null || \
+      log "WARNING: uplink connect failed — continuing anyway"
+    nmcli con modify "${HOME_SSID}-pi" connection.autoconnect yes 2>/dev/null || true
+  else
+    log "WARNING: No home Wi-Fi password — connect $IFACE_UPLINK manually:"
+    log "  nmcli dev wifi connect \"$HOME_SSID\" password \"YOUR_PASSWORD\" ifname $IFACE_UPLINK"
+  fi
 fi
 
 log "Configuring hostapd (no country_code — prevents stuck AP)..."
