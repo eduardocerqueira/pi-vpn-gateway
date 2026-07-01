@@ -67,6 +67,21 @@ render_template() {
 configure_uplink() {
   log "Configuring uplink ($IFACE_UPLINK) → $HOME_SSID"
 
+  # Skip if already connected to the target network
+  local current_ssid
+  current_ssid=$(nmcli -t -f ACTIVE,SSID dev wifi | grep '^yes' | cut -d: -f2 | head -1)
+  if [[ "$current_ssid" == "$HOME_SSID" ]] && nmcli -t -f DEVICE,STATE dev status | grep -q "^${IFACE_UPLINK}:connected"; then
+    log "Uplink already connected to $HOME_SSID — skipping reconnect"
+    nmcli con modify "$HOME_SSID" connection.autoconnect yes 2>/dev/null || true
+    return
+  fi
+
+  # Reuse stored NetworkManager password when not provided
+  if [[ -z "${HOME_WIFI_PASSWORD:-}" ]]; then
+    HOME_WIFI_PASSWORD=$(nmcli -s -g 802-11-wireless-security.psk connection show "$HOME_SSID" 2>/dev/null || true)
+  fi
+  [[ -n "${HOME_WIFI_PASSWORD:-}" ]] || die "HOME_WIFI_PASSWORD required (not found in NetworkManager)"
+
   nmcli radio wifi on 2>/dev/null || true
   rfkill unblock wifi 2>/dev/null || true
 
@@ -225,16 +240,23 @@ main() {
   echo ""
 
   if [[ -z "${HOME_SSID:-}" ]]; then
+    HOME_SSID=$(nmcli -t -f ACTIVE,SSID dev wifi | grep '^yes' | cut -d: -f2 | head -1)
+    [[ -n "$HOME_SSID" ]] && log "Detected uplink SSID: $HOME_SSID"
+  fi
+  if [[ -z "${HOME_SSID:-}" ]]; then
     prompt HOME_SSID "Home Wi-Fi SSID (uplink)"
     prompt_secret HOME_WIFI_PASSWORD "Home Wi-Fi password"
   else
-    log "Using HOME_SSID=$HOME_SSID from environment"
-    [[ -n "${HOME_WIFI_PASSWORD:-}" ]] || prompt_secret HOME_WIFI_PASSWORD "Home Wi-Fi password"
+    log "Using HOME_SSID=$HOME_SSID"
+    if [[ -z "${HOME_WIFI_PASSWORD:-}" ]]; then
+      HOME_WIFI_PASSWORD=$(nmcli -s -g 802-11-wireless-security.psk connection show "$HOME_SSID" 2>/dev/null || true)
+      [[ -n "$HOME_WIFI_PASSWORD" ]] && log "Using stored NetworkManager password for $HOME_SSID"
+    fi
   fi
 
   if [[ -z "${AP_PASSPHRASE:-}" ]]; then
-    prompt AP_PASSPHRASE "AP passphrase (min 8 chars)"
-    [[ ${#AP_PASSPHRASE} -ge 8 ]] || die "AP passphrase must be at least 8 characters"
+    AP_PASSPHRASE=$(openssl rand -base64 12 | tr -d '/+=' | head -c 16)
+    log "Generated AP passphrase (save this): $AP_PASSPHRASE"
   fi
 
   if [[ ! -f "/etc/wireguard/${WG_INTERFACE}.conf" ]]; then
