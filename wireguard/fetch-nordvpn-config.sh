@@ -12,9 +12,20 @@ VPN_COUNTRY="${VPN_COUNTRY:-Brazil}"
 log() { echo "[fetch-nordvpn] $*"; }
 die() { log "ERROR: $*"; exit 1; }
 
-: "${NORDVPN_TOKEN:?NORDVPN_TOKEN required}"
+if [[ -z "${NORDVPN_TOKEN:-}" && -f "$CONFIG_DIR/nordlynx.key" ]]; then
+  export NORDVPN_PRIVATE_KEY=$(tr -d '[:space:]' < "$CONFIG_DIR/nordlynx.key")
+  export NORDVPN_SERVER_HOSTNAME="${NORDVPN_SERVER_HOSTNAME:-}"
+  exec "$(dirname "$0")/generate-nordvpn-config.sh"
+fi
+
+: "${NORDVPN_TOKEN:?NORDVPN_TOKEN required (or place key in $CONFIG_DIR/nordlynx.key)}"
 
 log "Fetching WireGuard server for $VPN_COUNTRY..."
+
+grep -q 'api.nordvpn.com' /etc/hosts 2>/dev/null || tee -a /etc/hosts > /dev/null <<'EOF'
+104.16.208.203 api.nordvpn.com
+104.16.208.203 nordvpn.com
+EOF
 
 # Public NordVPN servers API
 SERVERS_JSON=$(curl -sf -g \

@@ -8,7 +8,7 @@ set -euo pipefail
 
 INSTALL_ROOT="${INSTALL_ROOT:-/opt/pi-vpn-gateway}"
 CONFIG="/etc/pi-vpn-gateway/env"
-AP_PASS='Brasil*2026!'
+AP_PASS='Brasil*2026'
 HOME_SSID="${HOME_SSID:-CASITA}"
 HOME_WIFI_PASSWORD="${1:-}"
 
@@ -117,7 +117,7 @@ auth_algs=1
 wpa=2
 wpa_key_mgmt=WPA-PSK
 rsn_pairwise=CCMP
-wpa_passphrase="${AP_PASS}"
+wpa_passphrase=${AP_PASS}
 ignore_broadcast_ssid=0
 beacon_int=100
 EOF

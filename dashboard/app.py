@@ -44,6 +44,48 @@ def wg_status(iface="wg0"):
     return {"up": True, "details": output}
 
 
+def iface_is_up(iface):
+    output = run_cmd(["ip", "-br", "link", "show", iface])
+    if not output:
+        return False
+    parts = output.split()
+    if len(parts) < 2:
+        return False
+    state = parts[1]
+    # tun/wg point-to-point links report UNKNOWN when working
+    if iface.startswith(("tun", "wg")):
+        return state in ("UP", "UNKNOWN")
+    return state == "UP"
+
+
+def vpn_status(env):
+    """Report VPN status for WireGuard or OpenVPN (tun0)."""
+    iface = env.get("VPN_INTERFACE", env.get("WG_INTERFACE", "tun0"))
+    service = env.get("VPN_SERVICE", "")
+
+    if iface.startswith("tun") or service.startswith("openvpn"):
+        svc = service if service.startswith("openvpn") else "openvpn-brazil"
+        up = service_status(svc) or iface_is_up(iface)
+        details = run_cmd(["ip", "-br", "addr", "show", iface])
+        return {"up": up, "details": details, "type": "openvpn", "iface": iface, "service": svc}
+
+    vpn = wg_status(iface)
+    svc = service if service.startswith("wg-quick") else f"wg-quick@{iface}"
+    vpn["type"] = "wireguard"
+    vpn["iface"] = iface
+    vpn["service"] = svc
+    if not vpn["up"]:
+        vpn["up"] = service_status(svc)
+    return vpn
+
+
+def public_ip_via_vpn(iface="tun0"):
+    # HTTP — HTTPS often fails when bound to tun on the Pi
+    return run_cmd(
+        ["curl", "-sf", "--max-time", "8", "--interface", iface, "http://ifconfig.me"]
+    )
+
+
 def connected_clients(ap_iface="wlan1"):
     clients = []
     output = run_cmd(["iw", "dev", ap_iface, "station", "dump"])
@@ -87,12 +129,6 @@ def dhcp_leases():
 def service_status(name):
     active = run_cmd(["systemctl", "is-active", name])
     return active == "active"
-
-
-def public_ip_via_vpn(iface="wg0"):
-    return run_cmd(
-        ["curl", "-sf", "--max-time", "8", "--interface", iface, "https://ifconfig.me"]
-    )
 
 
 HTML = """
@@ -182,19 +218,20 @@ HTML = """
 def index():
     env = load_env()
     ap_iface = env.get("IFACE_AP", "wlan1")
-    wg_iface = env.get("WG_INTERFACE", "wg0")
-    vpn = wg_status(wg_iface)
+    vpn = vpn_status(env)
+    vpn_iface = vpn.get("iface", "tun0")
+    vpn_service = vpn.get("service", env.get("VPN_SERVICE", "openvpn-brazil"))
 
     return render_template_string(
         HTML,
         ap_ssid=env.get("AP_SSID", "Home-BR"),
         vpn_country=env.get("VPN_COUNTRY", "Brazil"),
         vpn=vpn,
-        public_ip=public_ip_via_vpn(wg_iface) if vpn["up"] else "",
+        public_ip=public_ip_via_vpn(vpn_iface) if vpn["up"] else "",
         services={
             "hostapd": service_status("hostapd"),
-            "dnsmasq": service_status("dnsmasq"),
-            f"wg-quick@{wg_iface}": service_status(f"wg-quick@{wg_iface}"),
+            "pi-vpn-gateway-dhcp": service_status("pi-vpn-gateway-dhcp"),
+            vpn_service: service_status(vpn_service),
             "pi-vpn-gateway": service_status("pi-vpn-gateway"),
         },
         clients=connected_clients(ap_iface),
@@ -206,13 +243,13 @@ def index():
 @app.route("/api/status")
 def api_status():
     env = load_env()
-    wg_iface = env.get("WG_INTERFACE", "wg0")
     ap_iface = env.get("IFACE_AP", "wlan1")
-    vpn = wg_status(wg_iface)
+    vpn = vpn_status(env)
+    vpn_iface = vpn.get("iface", "tun0")
     return jsonify(
         {
             "vpn": vpn,
-            "public_ip": public_ip_via_vpn(wg_iface) if vpn["up"] else None,
+            "public_ip": public_ip_via_vpn(vpn_iface) if vpn["up"] else None,
             "clients": connected_clients(ap_iface),
             "leases": dhcp_leases(),
             "env": {k: v for k, v in env.items() if "PASS" not in k and "KEY" not in k and "TOKEN" not in k},

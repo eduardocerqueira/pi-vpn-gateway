@@ -1,0 +1,35 @@
+# Brazil OpenVPN UDP — fallback when NordLynx token not available yet.
+# Uses br120 (84.20.19.x) — different IP pool than br83 TCP datacenter block.
+# For Amazon Prime, prefer: scripts/switch-to-nordlynx.sh
+
+client
+dev tun
+proto udp
+remote 84.20.19.66 1194
+remote 84.20.19.66 1231
+remote 84.20.19.66 1232
+resolv-retry infinite
+remote-random
+nobind
+tun-mtu 1500
+mssfix 1400
+persist-key
+persist-tun
+ping 15
+ping-restart 0
+ping-timer-rem
+reneg-sec 0
+comp-lzo no
+verify-x509-name CN=br120.nordvpn.com
+remote-cert-tls server
+auth-user-pass /etc/openvpn/client/auth.txt
+verb 3
+pull
+fast-io
+cipher AES-256-GCM
+auth SHA512
+data-ciphers AES-256-GCM:AES-256-CBC
+route-nopull
+script-security 2
+up "/opt/pi-vpn-gateway/firewall/vpn-route.sh up"
+down "/opt/pi-vpn-gateway/firewall/vpn-route.sh down"

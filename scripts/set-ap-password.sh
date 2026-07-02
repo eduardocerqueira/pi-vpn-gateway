@@ -23,10 +23,10 @@ else
   echo "AP_PASSPHRASE=\"${NEW_PASS}\"" >> "$CONFIG"
 fi
 
-# Update hostapd — quoted passphrase handles * ! and other special characters
+# hostapd reads the value literally — do NOT wrap in quotes (that becomes part of the PSK)
 if [[ -f /etc/hostapd/hostapd.conf ]]; then
   grep -v '^wpa_passphrase=' /etc/hostapd/hostapd.conf > /etc/hostapd/hostapd.conf.tmp
-  printf 'wpa_passphrase="%s"\n' "$NEW_PASS" >> /etc/hostapd/hostapd.conf.tmp
+  printf 'wpa_passphrase=%s\n' "$NEW_PASS" >> /etc/hostapd/hostapd.conf.tmp
   mv /etc/hostapd/hostapd.conf.tmp /etc/hostapd/hostapd.conf
 fi
 

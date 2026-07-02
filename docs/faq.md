@@ -157,6 +157,34 @@ You should see a Brazilian IP when the VPN is up.
 
 ---
 
+## Amazon Prime / CazeTV blocks the VPN on my TV
+
+**Why:** The NordVPN app on your phone uses **NordLynx** (WireGuard). The Pi was using **OpenVPN over TCP** to a datacenter IP (`185.153.x.x`) that streaming services often flag.
+
+**What we did:** Switched the Pi to **OpenVPN UDP** on server **br120** (`84.20.19.x`) — a different IP pool. Test Amazon on the TV again on **Home-BR**.
+
+**Best fix (matches phone app):** Switch the Pi to **NordLynx**:
+
+1. Get a NordVPN access token: [Nord Account → Access tokens](https://my.nordaccount.com/dashboard/nordvpn/access-tokens/)
+2. On the Pi:
+
+```bash
+ssh -i ~/.ssh/id_rsa eduardo@192.168.100.218
+sudo NORDVPN_TOKEN="YOUR_TOKEN" bash /opt/pi-vpn-gateway/scripts/switch-to-nordlynx.sh
+```
+
+This stops OpenVPN, starts `wg0` with NordLynx, and updates routing/firewall. Your token is stored only in `/etc/pi-vpn-gateway/nordlynx.key` on the Pi.
+
+**Verify exit IP** from a phone on Home-BR:
+
+```bash
+curl https://ifconfig.me
+```
+
+Compare with the IP shown in the NordVPN app when connected to Brazil on CASITA — they should be in a similar range once NordLynx is active.
+
+---
+
 ## The dashboard says VPN is down but the Pi seems fine
 
 The dashboard may still check WireGuard (`wg0`) while the Pi uses **OpenVPN** (`tun0`). Verify on the Pi:

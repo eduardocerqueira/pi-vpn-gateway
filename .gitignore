@@ -1,3 +1,5 @@
 backups/
 *.tar.gz
 .env
+nordlynx.key
+**/nordlynx.key

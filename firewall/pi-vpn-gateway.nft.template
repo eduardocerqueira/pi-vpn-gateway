@@ -15,9 +15,12 @@ table inet pi_vpn_gateway {
     iif "lo" accept
     ct state established,related accept
 
-    # Allow DHCP/DNS/ping to the Pi from AP clients
-    iifname $AP_IFACE ip saddr $AP_NET udp dport { 67, 68 } accept
-    iifname $AP_IFACE ip saddr $AP_NET udp dport 53 accept
+    # DHCP from AP clients (must allow 0.0.0.0 — clients have no IP yet)
+    iifname $AP_IFACE udp dport 67 accept
+    iifname $AP_IFACE udp sport 68 udp dport 68 accept
+
+    # Allow all traffic from AP clients to the Pi (dashboard, DNS, DHCP, etc.)
+    iifname $AP_IFACE ip saddr $AP_NET accept
     iifname $AP_IFACE ip saddr $AP_NET tcp dport 53 accept
     iifname $AP_IFACE ip saddr $AP_NET icmp type echo-request accept
 
@@ -42,6 +45,9 @@ table inet pi_vpn_gateway {
     type filter hook forward priority filter; policy drop;
 
     ct state established,related accept
+
+    # MSS clamp for VPN tunnel (fixes "connected but no internet" on phones)
+    iifname $AP_IFACE oifname $VPN_IFACE tcp flags syn tcp option maxseg size set rt mtu
 
     # AP clients may only reach internet through VPN interface (kill switch)
     iifname $AP_IFACE oifname $VPN_IFACE ip saddr $AP_NET accept
